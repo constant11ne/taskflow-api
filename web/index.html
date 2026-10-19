@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>TaskFlow — задачи</title>
+  <style>
+    :root { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #17243b; background: #f3f6fb; }
+    * { box-sizing: border-box; }
+    body { margin: 0; }
+    button, input, select, textarea { font: inherit; }
+    button { cursor: pointer; }
+    a { color: #155cc3; }
+    .shell { max-width: 1100px; margin: 0 auto; padding: 36px 20px 60px; }
+    .top { display: flex; justify-content: space-between; align-items: start; gap: 20px; margin-bottom: 28px; }
+    h1 { margin: 0 0 6px; font-size: clamp(2rem, 5vw, 3rem); line-height: 1.08; letter-spacing: -.04em; }
+    h2 { margin: 0 0 18px; font-size: 1.25rem; }
+    p { line-height: 1.5; }
+    .muted { color: #61708a; margin: 0; }
+    .top a { white-space: nowrap; font-weight: 600; padding-top: 9px; }
+    .grid { display: grid; grid-template-columns: minmax(270px, 340px) minmax(0, 1fr); gap: 22px; align-items: start; }
+    .card { background: #fff; border: 1px solid #e0e7f0; border-radius: 18px; box-shadow: 0 5px 20px #1b33520a; padding: 22px; }
+    label { display: block; font-size: .9rem; font-weight: 600; margin: 0 0 7px; }
+    input, select, textarea { width: 100%; min-height: 42px; padding: 9px 11px; border: 1px solid #b9c7da; border-radius: 9px; background: #fff; color: #17243b; }
+    textarea { min-height: 86px; resize: vertical; }
+    input:focus, select:focus, textarea:focus, button:focus-visible { outline: 3px solid #91baff; outline-offset: 2px; }
+    .field { margin-bottom: 16px; }
+    .primary { border: 0; border-radius: 9px; padding: 11px 16px; background: #155cc3; color: #fff; font-weight: 700; }
+    .primary:hover { background: #0f4a9f; }
+    .primary:disabled { opacity: .6; cursor: wait; }
+    .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 20px; }
+    .stat { background: #f3f7fd; border-radius: 10px; padding: 12px; }
+    .stat strong { display: block; font-size: 1.5rem; }
+    .stat span { color: #61708a; font-size: .8rem; }
+    .progress { height: 8px; border-radius: 10px; background: #e8eef6; overflow: hidden; margin-bottom: 6px; }
+    .progress > span { display: block; height: 100%; width: 0; background: #1c9b71; transition: width .2s; }
+    .filters { display: grid; grid-template-columns: minmax(150px, 1fr) 145px 145px; gap: 10px; margin: 22px 0 16px; }
+    .filters label { margin-bottom: 5px; }
+    .tasks { list-style: none; padding: 0; margin: 0; }
+    .task { display: flex; justify-content: space-between; align-items: start; gap: 14px; padding: 16px 0; border-top: 1px solid #e6ecf4; }
+    .task h3 { margin: 0 0 5px; font-size: 1rem; overflow-wrap: anywhere; }
+    .task p { margin: 0 0 6px; color: #61708a; overflow-wrap: anywhere; white-space: pre-wrap; }
+    .task small { color: #61708a; }
+    .task-actions { display: flex; align-items: center; gap: 7px; flex-shrink: 0; }
+    .task-actions select { width: 143px; min-height: 36px; padding: 6px; }
+    .remove { background: #fff; border: 1px solid #d9b9bd; border-radius: 8px; padding: 8px 10px; color: #a02a39; }
+    .remove:hover { background: #fff0f1; }
+    .empty { text-align: center; color: #61708a; padding: 28px 8px; border-top: 1px solid #e6ecf4; }
+    .notice { min-height: 1.5em; margin: 12px 0 0; font-size: .9rem; }
+    .notice.error { color: #aa2335; }
+    .foot { color: #61708a; font-size: .86rem; margin-top: 24px; }
+    @media (max-width: 780px) { .grid { grid-template-columns: 1fr; } }
+    @media (max-width: 560px) { .top { display: block; } .top a { display: inline-block; } .stats { grid-template-columns: repeat(2, 1fr); } .filters { grid-template-columns: 1fr; } .task { display: block; } .task-actions { margin-top: 12px; } }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header class="top">
+      <div><h1>TaskFlow</h1><p class="muted">Небольшое пространство для задач и прогресса.</p></div>
+      <a href="/docs">Документация API →</a>
+    </header>
+
+    <div class="grid">
+      <section class="card" aria-labelledby="create-title">
+        <h2 id="create-title">Новая задача</h2>
+        <form id="task-form">
+          <div class="field"><label for="title">Название</label><input id="title" name="title" maxlength="120" required placeholder="Например, подготовить презентацию"></div>
+          <div class="field"><label for="description">Описание</label><textarea id="description" name="description" maxlength="1000" placeholder="Необязательно"></textarea></div>
+          <div class="field"><label for="priority">Приоритет</label><select id="priority" name="priority"><option value="normal">Обычный</option><option value="high">Высокий</option><option value="low">Низкий</option></select></div>
+          <button class="primary" type="submit">Добавить задачу</button>
+        </form>
+        <p id="message" class="notice" role="status" aria-live="polite"></p>
+      </section>
+
+      <section class="card" aria-labelledby="list-title">
+        <h2 id="list-title">Мои задачи</h2>
+        <div class="stats" aria-label="Статистика задач">
+          <div class="stat"><strong id="total">0</strong><span>всего</span></div>
+          <div class="stat"><strong id="todo">0</strong><span>запланировано</span></div>
+          <div class="stat"><strong id="in-progress">0</strong><span>в работе</span></div>
+          <div class="stat"><strong id="done">0</strong><span>готово</span></div>
+        </div>
+        <div class="progress" role="progressbar" aria-label="Выполнено" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="progress-fill"></span></div>
+        <p id="progress-label" class="muted">Выполнено 0%</p>
+
+        <div class="filters">
+          <div><label for="search">Поиск</label><input id="search" type="search" maxlength="120" placeholder="По названию"></div>
+          <div><label for="status-filter">Статус</label><select id="status-filter"><option value="">Все</option><option value="todo">Запланировано</option><option value="in_progress">В работе</option><option value="done">Готово</option></select></div>
+          <div><label for="priority-filter">Приоритет</label><select id="priority-filter"><option value="">Любой</option><option value="low">Низкий</option><option value="normal">Обычный</option><option value="high">Высокий</option></select></div>
+        </div>
+        <ul id="task-list" class="tasks" aria-live="polite"></ul>
+        <p id="empty" class="empty">Задач пока нет. Добавьте первую слева.</p>
+      </section>
+    </div>
+    <p class="foot">Данные хранятся в памяти и очищаются при перезапуске сервиса.</p>
+  </main>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const labels = {todo: 'Запланировано', in_progress: 'В работе', done: 'Готово'};
+    const priorities = {low: 'Низкий', normal: 'Обычный', high: 'Высокий'};
+
+    async function api(path, options) {
+      const response = await fetch(path, options);
+      if (response.status === 204) return null;
+      const data = await response.json();
+      if (!response.ok) {
+        const detail = data.detail;
+        throw new Error(typeof detail === 'string' ? detail : `Ошибка запроса (${response.status})`);
+      }
+      return data;
+    }
+
+    function message(text, error = false) {
+      $('message').textContent = text;
+      $('message').classList.toggle('error', error);
+    }
+
+    function taskRow(task) {
+      const row = document.createElement('li');
+      row.className = 'task';
+      const content = document.createElement('div');
+      const title = document.createElement('h3');
+      title.textContent = task.title;
+      content.append(title);
+      if (task.description) {
+        const description = document.createElement('p');
+        description.textContent = task.description;
+        content.append(description);
+      }
+      const meta = document.createElement('small');
+      meta.textContent = `#${task.id} · ${priorities[task.priority]}`;
+      content.append(meta);
+      const actions = document.createElement('div');
+      actions.className = 'task-actions';
+      const status = document.createElement('select');
+      status.setAttribute('aria-label', `Статус задачи ${task.title}`);
+      for (const [value, label] of Object.entries(labels)) {
+        const option = document.createElement('option');
+        option.value = value;
+        option.textContent = label;
+        status.append(option);
+      }
+      status.value = task.status;
+      status.addEventListener('change', async () => {
+        status.disabled = true;
+        try {
+          await api(`/tasks/${task.id}`, {method: 'PATCH', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({status: status.value})});
+          message('Статус обновлён.');
+          await refresh();
+        } catch (error) {
+          status.value = task.status;
+          message(error.message, true);
+        } finally {
+          status.disabled = false;
+        }
+      });
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'remove';
+      remove.textContent = 'Удалить';
+      remove.setAttribute('aria-label', `Удалить задачу ${task.title}`);
+      remove.addEventListener('click', async () => {
+        if (!window.confirm(`Удалить задачу «${task.title}»?`)) return;
+        remove.disabled = true;
+        try {
+          await api(`/tasks/${task.id}`, {method: 'DELETE'});
+          message('Задача удалена.');
+          await refresh();
+        } catch (error) {
+          message(error.message, true);
+          remove.disabled = false;
+        }
+      });
+      actions.append(status, remove);
+      row.append(content, actions);
+      return row;
+    }
+
+    async function loadTasks() {
+      const params = new URLSearchParams({limit: '100'});
+      const search = $('search').value.trim();
+      if (search) params.set('q', search);
+      if ($('status-filter').value) params.set('status', $('status-filter').value);
+      if ($('priority-filter').value) params.set('priority', $('priority-filter').value);
+      const tasks = [];
+      while (true) {
+        params.set('offset', String(tasks.length));
+        const page = await api(`/tasks?${params}`);
+        tasks.push(...page);
+        if (page.length < 100) break;
+      }
+      $('task-list').replaceChildren(...tasks.map(taskRow));
+      $('empty').hidden = tasks.length > 0;
+      $('empty').textContent = $('search').value || $('status-filter').value || $('priority-filter').value
+        ? 'По этим условиям задач нет.' : 'Задач пока нет. Добавьте первую слева.';
+    }
+
+    async function refresh() {
+      try {
+        const [stats] = await Promise.all([api('/stats'), loadTasks()]);
+        for (const key of ['total', 'todo', 'done']) $(key).textContent = stats[key];
+        $('in-progress').textContent = stats.in_progress;
+        const percent = stats.completion_percent;
+        $('progress-fill').style.width = `${percent}%`;
+        document.querySelector('.progress').setAttribute('aria-valuenow', String(percent));
+        $('progress-label').textContent = `Выполнено ${percent}%`;
+      } catch (error) {
+        message(`Не удалось загрузить данные: ${error.message}`, true);
+      }
+    }
+
+    $('task-form').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const form = event.currentTarget;
+      const submit = form.querySelector('button[type="submit"]');
+      submit.disabled = true;
+      try {
+        await api('/tasks', {
+          method: 'POST', headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({title: $('title').value, description: $('description').value, priority: $('priority').value})
+        });
+        form.reset();
+        message('Задача добавлена.');
+        await refresh();
+        $('title').focus();
+      } catch (error) {
+        message(error.message, true);
+      } finally {
+        submit.disabled = false;
+      }
+    });
+    for (const id of ['status-filter', 'priority-filter']) $(id).addEventListener('change', refresh);
+    let searchTimer;
+    $('search').addEventListener('input', () => {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(refresh, 200);
+    });
+    refresh();
+  </script>
+</body>
+</html>

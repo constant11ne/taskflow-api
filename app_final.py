@@ -7,12 +7,14 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from enum import Enum
+from pathlib import Path as FilePath
 from threading import Lock
 from time import perf_counter
 from typing import Annotated
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Path, Query, Request, Response, status
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 logger = logging.getLogger("taskflow")
@@ -178,9 +180,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         )
         return response
 
-    @application.get("/", tags=["Сервис"])
+    @application.get("/", response_class=HTMLResponse, include_in_schema=False)
     def root():
-        return {"name": config.app_name, "docs": "/docs", "health": "/health"}
+        return (FilePath(__file__).parent / "web" / "index.html").read_text(encoding="utf-8")
 
     @application.get("/health", tags=["Сервис"])
     def health():

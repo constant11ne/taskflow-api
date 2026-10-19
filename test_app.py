@@ -166,6 +166,12 @@ def test_logs_include_lifecycle_requests_and_task_events(caplog):
 
 
 def test_documentation_and_required_routes(client):
+    page = client.get("/")
+    assert page.status_code == 200
+    assert page.headers["content-type"].startswith("text/html")
+    assert 'id="task-form"' in page.text
+    assert 'id="task-list"' in page.text
+    assert 'href="/docs"' in page.text
     assert client.get("/docs").status_code == 200
     schema = client.get("/openapi.json").json()
     assert {"/health", "/version", "/tasks", "/tasks/{task_id}", "/stats"} <= schema["paths"].keys()
