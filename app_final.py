@@ -12,7 +12,7 @@ from time import perf_counter
 from typing import Annotated
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Path, Request, Response, status
+from fastapi import FastAPI, HTTPException, Path, Query, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 logger = logging.getLogger("taskflow")
@@ -54,6 +54,14 @@ class Task(TaskCreate):
     id: int
     status: TaskStatus = TaskStatus.todo
     created_at: datetime
+
+
+class TaskStats(BaseModel):
+    total: int
+    todo: int
+    in_progress: int
+    done: int
+    completion_percent: float
 
 
 class TaskStore:
@@ -183,8 +191,32 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return {"name": config.app_name, "version": config.app_version}
 
     @application.get("/tasks", response_model=list[Task], tags=["Задачи"])
-    def list_tasks():
-        return store.snapshot()
+    def list_tasks(
+        status: TaskStatus | None = None,
+        priority: Priority | None = None,
+        q: Annotated[str | None, Query(min_length=1, max_length=120)] = None,
+        limit: Annotated[int, Query(ge=1, le=100)] = 50,
+        offset: Annotated[int, Query(ge=0)] = 0,
+    ):
+        tasks = store.snapshot()
+        if status is not None:
+            tasks = [task for task in tasks if task.status == status]
+        if priority is not None:
+            tasks = [task for task in tasks if task.priority == priority]
+        if q is not None:
+            tasks = [task for task in tasks if q.casefold() in task.title.casefold()]
+        return tasks[offset:offset + limit]
+
+    @application.get("/stats", response_model=TaskStats, tags=["Статистика"])
+    def statistics():
+        tasks = store.snapshot()
+        counts = {item.value: sum(task.status == item for task in tasks) for item in TaskStatus}
+        total = len(tasks)
+        return TaskStats(
+            total=total,
+            completion_percent=round(counts["done"] / total * 100, 1) if total else 0.0,
+            **counts,
+        )
 
     @application.post(
         "/tasks", response_model=Task,
